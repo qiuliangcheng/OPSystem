@@ -44,6 +44,22 @@ procinit(void)
   kvminithart();
 }
 
+//get how many proc on unused
+uint64
+getuproc(void){
+  struct proc *p;
+  uint64 res=0;
+  for(p = proc; p < &proc[NPROC]; p++) {
+    if(p->state!=UNUSED)
+    {
+      res++;
+    }
+  }
+  return res;
+
+}
+
+
 // Must be called with interrupts disabled,
 // to prevent race with process being moved
 // to a different CPU.
@@ -290,7 +306,7 @@ fork(void)
   np->cwd = idup(p->cwd);
 
   safestrcpy(np->name, p->name, sizeof(p->name));
-
+  np->trace_mask=p->trace_mask;
   pid = np->pid;
 
   np->state = RUNNABLE;

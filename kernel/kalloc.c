@@ -39,6 +39,8 @@ freerange(void *pa_start, void *pa_end)
     kfree(p);
 }
 
+
+
 // Free the page of physical memory pointed at by v,
 // which normally should have been returned by a
 // call to kalloc().  (The exception is when
@@ -79,4 +81,17 @@ kalloc(void)
   if(r)
     memset((char*)r, 5, PGSIZE); // fill with junk
   return (void*)r;
+}
+uint64
+getfreemem(void){
+  uint64 res=0;
+  struct run *r;
+  acquire(&kmem.lock);
+  r = kmem.freelist;
+  while(r){
+    res+=PGSIZE;
+    r=r->next;
+  }
+  release(&kmem.lock);
+  return res;
 }

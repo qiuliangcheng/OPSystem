@@ -18,7 +18,8 @@ main(int argc, char *argv[])
     fprintf(2, "%s: trace failed\n", argv[0]);
     exit(1);
   }
-  
+// argv  = trace 32 grep hello README
+// nargv = grep hello README
   for(i = 2; i < argc && i < MAXARG; i++){
     nargv[i-2] = argv[i];
   }
