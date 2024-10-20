@@ -14,6 +14,17 @@ void freerange(void *pa_start, void *pa_end);
 extern char end[]; // first address after kernel.
                    // defined by kernel.ld.
 
+static int ref_count[(PHYSTOP-KERNBASE)/PGSIZE]; //the special pg count 
+static int idx_(uint64 pa){
+  return (pa-KERNBASE)>>12;
+}
+void add_(uint64 pa){
+  ref_count[idx_(pa)]++;
+}
+void sub_(uint64 pa){
+  ref_count[idx_(pa)]--;
+}
+
 struct run {
   struct run *next;
 };
@@ -27,6 +38,7 @@ void
 kinit()
 {
   initlock(&kmem.lock, "kmem");
+  memset(ref_count,0,sizeof(ref_count));
   freerange(end, (void*)PHYSTOP);
 }
 
@@ -50,7 +62,10 @@ kfree(void *pa)
 
   if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
     panic("kfree");
-
+  if(ref_count[idx_((uint64)pa)]>1){
+    sub_((uint64)pa);
+    return;
+  }
   // Fill with junk to catch dangling refs.
   memset(pa, 1, PGSIZE);
 
@@ -60,6 +75,7 @@ kfree(void *pa)
   r->next = kmem.freelist;
   kmem.freelist = r;
   release(&kmem.lock);
+  ref_count[idx_((uint64)pa)]=0;
 }
 
 // Allocate one 4096-byte page of physical memory.
@@ -78,5 +94,34 @@ kalloc(void)
 
   if(r)
     memset((char*)r, 5, PGSIZE); // fill with junk
+  ref_count[idx_((uint64)r)]=1;
   return (void*)r;
+}
+int cow_alloc(pagetable_t pagetable,uint64 va)
+{
+  va = PGROUNDDOWN(va);
+  if(va>=MAXVA)
+    return -1;
+  pte_t *pte = walk(pagetable, va, 0);
+  if(pte==0)
+    return -1;
+  uint64 pa = PTE2PA(*pte);
+  if(pa==0)
+    return -1;
+  uint64 flags = PTE_FLAGS(*pte);
+  if(flags&PTE_C)
+  {
+    uint64 mem = (uint64)kalloc();
+    if(mem==0)
+      return -1;
+    memmove((char *)mem, (char *)pa, PGSIZE);
+    uvmunmap(pagetable, va, 1, 1);
+    flags = (flags | PTE_W) & ~PTE_C;
+    if(mappages(pagetable,va,PGSIZE,mem,flags)!=0)
+    {
+      kfree((void *)mem);
+      return -1;
+    }
+  }
+  return 0;
 }
