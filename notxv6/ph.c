@@ -4,7 +4,7 @@
 #include <assert.h>
 #include <pthread.h>
 #include <sys/time.h>
-
+//两个线程同时input的时候 一个线程还没有返回另一个线程就插入 会覆盖原先的数据
 #define NBUCKET 5
 #define NKEYS 100000
 
@@ -16,6 +16,7 @@ struct entry {
 struct entry *table[NBUCKET];
 int keys[NKEYS];
 int nthread = 1;
+pthread_mutex_t lock[NBUCKET]={PTHREAD_COND_INITIALIZER}; // declare a lock
 
 double
 now()
@@ -51,7 +52,9 @@ void put(int key, int value)
     e->value = value;
   } else {
     // the new is new.
+    pthread_mutex_lock(&lock[i]);
     insert(key, value, &table[i], table[i]);
+    pthread_mutex_unlock(&lock[i]);
   }
 }
 
