@@ -68,7 +68,7 @@ int
 argaddr(int n, uint64 *ip)
 {
   *ip = argraw(n);
-  //直接进行系统调用获取的参数不会走到页面错误那里 而会直接syscall 然后发现这个地址不存在 就报错了 所以系统调用得分开写
+  //直接进行系统调用获取的参数不会走到页面错误那里 而会直接syscall  然后发现这个地址不存在 就报错了 所以系统调用得分开写
   struct proc* p = myproc();
   if(walkaddr(p->pagetable, *ip) == 0) {
     if(PGROUNDUP(p->trapframe->sp) - 1 < *ip && *ip < p->sz) {
